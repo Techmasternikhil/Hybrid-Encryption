@@ -1,0 +1,19 @@
+# Private Keys (Never commit these!)
+*.pem
+
+# Encrypted Files (User data)
+*.enc
+
+# Sample/Test Files
+secret.txt
+secret_decrypted.txt
+should_fail.txt
+
+# Python Specific
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+.venv/
+env/

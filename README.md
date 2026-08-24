@@ -11,6 +11,11 @@ This project includes a fully-featured modern Desktop GUI, built using `customtk
 - **Modern Desktop UI**: A sleek, dark-themed graphical interface for ease of use.
 - **Completely Local**: Keys are generated and stored locally on your machine. Your private key never leaves your device.
 
+
+<img width="740" height="586" alt="image" src="https://github.com/user-attachments/assets/eb01d9a9-0655-44f9-ba33-40f67261d85f" />
+
+
+
 ## Installation
 
 1. **Clone the repository:**

@@ -61,16 +61,21 @@ class EncryptionWizard(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Encrypt a File", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=3, pady=(20, 20))
 
         # Receiver Pub Key
-        ctk.CTkLabel(self, text="1. Receiver's Public Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=(10, 5), sticky="w")
+        ctk.CTkLabel(self, text="1. Who are you sending this to? (Select THEIR public.pem):", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=(10, 5), sticky="w")
         self.lbl_pub = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
         self.lbl_pub.grid(row=1, column=1, padx=10, pady=(10, 5), sticky="w")
         ctk.CTkButton(self, text="Browse", width=80, command=self.sel_pub).grid(row=1, column=2, padx=20, pady=(10, 5))
 
         # Sender Priv Key
-        ctk.CTkLabel(self, text="2. Your Private Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkLabel(self, text="2. Your Identity (Select YOUR private.pem):", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="w")
         self.lbl_priv = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
         self.lbl_priv.grid(row=2, column=1, padx=10, pady=5, sticky="w")
         ctk.CTkButton(self, text="Browse", width=80, command=self.sel_priv).grid(row=2, column=2, padx=20, pady=5)
+        
+        # Auto-detect private.pem
+        if os.path.exists("private.pem"):
+            self.sender_priv = os.path.abspath("private.pem")
+            self.lbl_priv.configure(text="private.pem (Auto-detected)", text_color="#2ECC71")
 
         # Password
         ctk.CTkLabel(self, text="3. Your Private Key Passphrase:", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="w")
@@ -174,10 +179,15 @@ class DecryptionWizard(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Decrypt a File", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=3, pady=(20, 20))
 
         # Receiver Priv Key
-        ctk.CTkLabel(self, text="1. Your Private Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=(10, 5), sticky="w")
+        ctk.CTkLabel(self, text="1. Your Identity (Select YOUR private.pem):", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=(10, 5), sticky="w")
         self.lbl_priv = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
         self.lbl_priv.grid(row=1, column=1, padx=10, pady=(10, 5), sticky="w")
         ctk.CTkButton(self, text="Browse", width=80, command=self.sel_priv).grid(row=1, column=2, padx=20, pady=(10, 5))
+        
+        # Auto-detect private.pem
+        if os.path.exists("private.pem"):
+            self.receiver_priv = os.path.abspath("private.pem")
+            self.lbl_priv.configure(text="private.pem (Auto-detected)", text_color="#2ECC71")
 
         # Password
         ctk.CTkLabel(self, text="2. Your Private Key Passphrase:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="w")
@@ -185,7 +195,7 @@ class DecryptionWizard(ctk.CTkToplevel):
         self.entry_pwd.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="w")
 
         # Sender Pub Key
-        ctk.CTkLabel(self, text="3. Sender's Public Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkLabel(self, text="3. Who sent this? (Select THEIR public.pem):", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="w")
         self.lbl_pub = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
         self.lbl_pub.grid(row=3, column=1, padx=10, pady=5, sticky="w")
         ctk.CTkButton(self, text="Browse", width=80, command=self.sel_pub).grid(row=3, column=2, padx=20, pady=5)

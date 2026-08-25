@@ -1,2 +1,7 @@
-cryptography>=41.0.0
-customtkinter>=5.2.0
+# Secure Edition Requirements
+# Locked down to exact versions to mitigate Supply Chain / Dependency Confusion attacks.
+# In a production environment, you should enforce strict hashes:
+# pip install --require-hashes -r requirements.txt
+
+cryptography==41.0.3
+customtkinter==5.2.0

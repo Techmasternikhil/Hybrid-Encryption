@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import datetime
+import re
 from cryptography.exceptions import InvalidTag, InvalidSignature
 from hybrid_crypto import generate_rsa_keys, encrypt_file, decrypt_file
 
@@ -40,12 +41,253 @@ class PasswordDialog(ctk.CTkToplevel):
         self.password = self.entry.get()
         self.destroy()
 
+class EncryptionWizard(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Encryption & Signing Wizard")
+        self.geometry("650x450")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self.receiver_pub = None
+        self.sender_priv = None
+        self.input_file = None
+        self.output_file = None
+
+        self.grid_columnconfigure(1, weight=1)
+
+        # Header
+        ctk.CTkLabel(self, text="Encrypt a File", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=3, pady=(20, 20))
+
+        # Receiver Pub Key
+        ctk.CTkLabel(self, text="1. Receiver's Public Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=(10, 5), sticky="w")
+        self.lbl_pub = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_pub.grid(row=1, column=1, padx=10, pady=(10, 5), sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_pub).grid(row=1, column=2, padx=20, pady=(10, 5))
+
+        # Sender Priv Key
+        ctk.CTkLabel(self, text="2. Your Private Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="w")
+        self.lbl_priv = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_priv.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_priv).grid(row=2, column=2, padx=20, pady=5)
+
+        # Password
+        ctk.CTkLabel(self, text="3. Your Private Key Passphrase:", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        self.entry_pwd = ctk.CTkEntry(self, show="*", width=200)
+        self.entry_pwd.grid(row=3, column=1, columnspan=2, padx=10, pady=5, sticky="w")
+
+        # Input File
+        ctk.CTkLabel(self, text="4. File to Encrypt:", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="w")
+        self.lbl_in = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_in.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_in).grid(row=4, column=2, padx=20, pady=5)
+
+        # Output File
+        ctk.CTkLabel(self, text="5. Save Encrypted File As:", font=ctk.CTkFont(weight="bold")).grid(row=5, column=0, padx=20, pady=5, sticky="w")
+        self.lbl_out = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_out.grid(row=5, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_out).grid(row=5, column=2, padx=20, pady=5)
+
+        # Execute
+        self.btn_exec = ctk.CTkButton(self, text="Encrypt & Sign", font=ctk.CTkFont(weight="bold"), fg_color="#1E8449", hover_color="#145A32", command=self.execute)
+        self.btn_exec.grid(row=6, column=0, columnspan=3, pady=(30, 20))
+
+    def sel_pub(self):
+        f = filedialog.askopenfilename(title="Select Receiver's Public Key", filetypes=[("PEM Files", "*.pem")])
+        if f:
+            try:
+                with open(f, 'r') as file:
+                    if 'BEGIN PUBLIC KEY' in file.readline():
+                        self.receiver_pub = f
+                        self.lbl_pub.configure(text=os.path.basename(f), text_color="#2ECC71")
+                        return
+            except Exception: pass
+            self.receiver_pub = None
+            self.lbl_pub.configure(text="Invalid Public Key", text_color="#E74C3C")
+
+    def sel_priv(self):
+        f = filedialog.askopenfilename(title="Select YOUR Private Key", filetypes=[("PEM Files", "*.pem")])
+        if f:
+            try:
+                with open(f, 'r') as file:
+                    if 'PRIVATE KEY' in file.readline():
+                        self.sender_priv = f
+                        self.lbl_priv.configure(text=os.path.basename(f), text_color="#2ECC71")
+                        return
+            except Exception: pass
+            self.sender_priv = None
+            self.lbl_priv.configure(text="Invalid Private Key", text_color="#E74C3C")
+
+    def sel_in(self):
+        f = filedialog.askopenfilename(title="Select File to Encrypt")
+        if f:
+            self.input_file = f
+            self.lbl_in.configure(text=os.path.basename(f), text_color="#2ECC71")
+
+    def sel_out(self):
+        if not self.input_file:
+            messagebox.showwarning("Warning", "Please select the file to encrypt first!")
+            return
+        f = filedialog.asksaveasfilename(title="Save Encrypted File As", defaultextension=".enc", initialfile=os.path.basename(self.input_file) + ".enc")
+        if f:
+            self.output_file = f
+            self.lbl_out.configure(text=os.path.basename(f), text_color="#2ECC71")
+
+    def execute(self):
+        if not all([self.receiver_pub, self.sender_priv, self.input_file, self.output_file]):
+            messagebox.showerror("Missing Files", "Please select all 4 required files before encrypting.")
+            return
+        
+        pwd = self.entry_pwd.get().encode('utf-8')
+        if not pwd:
+            messagebox.showerror("Missing Passphrase", "Please enter your private key passphrase.")
+            return
+
+        try:
+            encrypt_file(self.receiver_pub, self.sender_priv, self.input_file, self.output_file, pwd)
+            messagebox.showinfo("Success", f"File successfully encrypted AND signed!\n\nSaved to: {self.output_file}")
+            self.destroy()
+        except OSError:
+            messagebox.showerror("File Error", "Could not access or write the file. Please check permissions.")
+        except Exception as e:
+            messagebox.showerror("Encryption Failed", f"Encryption failed:\n\n{str(e)}")
+
+
+class DecryptionWizard(ctk.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Decryption & Verification Wizard")
+        self.geometry("650x450")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self.receiver_priv = None
+        self.sender_pub = None
+        self.input_file = None
+        self.output_file = None
+
+        self.grid_columnconfigure(1, weight=1)
+
+        # Header
+        ctk.CTkLabel(self, text="Decrypt a File", font=ctk.CTkFont(size=20, weight="bold")).grid(row=0, column=0, columnspan=3, pady=(20, 20))
+
+        # Receiver Priv Key
+        ctk.CTkLabel(self, text="1. Your Private Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=1, column=0, padx=20, pady=(10, 5), sticky="w")
+        self.lbl_priv = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_priv.grid(row=1, column=1, padx=10, pady=(10, 5), sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_priv).grid(row=1, column=2, padx=20, pady=(10, 5))
+
+        # Password
+        ctk.CTkLabel(self, text="2. Your Private Key Passphrase:", font=ctk.CTkFont(weight="bold")).grid(row=2, column=0, padx=20, pady=5, sticky="w")
+        self.entry_pwd = ctk.CTkEntry(self, show="*", width=200)
+        self.entry_pwd.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="w")
+
+        # Sender Pub Key
+        ctk.CTkLabel(self, text="3. Sender's Public Key (*.pem):", font=ctk.CTkFont(weight="bold")).grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        self.lbl_pub = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_pub.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_pub).grid(row=3, column=2, padx=20, pady=5)
+
+        # Input File
+        ctk.CTkLabel(self, text="4. Encrypted File (*.enc):", font=ctk.CTkFont(weight="bold")).grid(row=4, column=0, padx=20, pady=5, sticky="w")
+        self.lbl_in = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_in.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_in).grid(row=4, column=2, padx=20, pady=5)
+
+        # Output File
+        ctk.CTkLabel(self, text="5. Save Decrypted File As:", font=ctk.CTkFont(weight="bold")).grid(row=5, column=0, padx=20, pady=5, sticky="w")
+        self.lbl_out = ctk.CTkLabel(self, text="Not Selected", text_color="gray")
+        self.lbl_out.grid(row=5, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkButton(self, text="Browse", width=80, command=self.sel_out).grid(row=5, column=2, padx=20, pady=5)
+
+        # Execute
+        self.btn_exec = ctk.CTkButton(self, text="Decrypt & Verify", font=ctk.CTkFont(weight="bold"), fg_color="#1E8449", hover_color="#145A32", command=self.execute)
+        self.btn_exec.grid(row=6, column=0, columnspan=3, pady=(30, 20))
+
+    def sel_priv(self):
+        f = filedialog.askopenfilename(title="Select YOUR Private Key", filetypes=[("PEM Files", "*.pem")])
+        if f:
+            try:
+                with open(f, 'r') as file:
+                    if 'PRIVATE KEY' in file.readline():
+                        self.receiver_priv = f
+                        self.lbl_priv.configure(text=os.path.basename(f), text_color="#2ECC71")
+                        return
+            except Exception: pass
+            self.receiver_priv = None
+            self.lbl_priv.configure(text="Invalid Private Key", text_color="#E74C3C")
+
+    def sel_pub(self):
+        f = filedialog.askopenfilename(title="Select Sender's Public Key", filetypes=[("PEM Files", "*.pem")])
+        if f:
+            try:
+                with open(f, 'r') as file:
+                    if 'BEGIN PUBLIC KEY' in file.readline():
+                        self.sender_pub = f
+                        self.lbl_pub.configure(text=os.path.basename(f), text_color="#2ECC71")
+                        return
+            except Exception: pass
+            self.sender_pub = None
+            self.lbl_pub.configure(text="Invalid Public Key", text_color="#E74C3C")
+
+    def sel_in(self):
+        f = filedialog.askopenfilename(title="Select Encrypted File", filetypes=[("Encrypted Files", "*.enc"), ("All Files", "*.*")])
+        if f:
+            self.input_file = f
+            self.lbl_in.configure(text=os.path.basename(f), text_color="#2ECC71")
+
+    def sel_out(self):
+        if not self.input_file:
+            messagebox.showwarning("Warning", "Please select the encrypted file first!")
+            return
+            
+        default_out = self.input_file.replace(".enc", "")
+        if default_out == self.input_file:
+            default_out += ".decrypted"
+            
+        f = filedialog.asksaveasfilename(title="Save Decrypted File As", initialfile=os.path.basename(default_out))
+        if f:
+            self.output_file = f
+            self.lbl_out.configure(text=os.path.basename(f), text_color="#2ECC71")
+
+    def execute(self):
+        if not all([self.receiver_priv, self.sender_pub, self.input_file, self.output_file]):
+            messagebox.showerror("Missing Files", "Please select all 4 required files before decrypting.")
+            return
+            
+        pwd = self.entry_pwd.get().encode('utf-8')
+        if not pwd:
+            messagebox.showerror("Missing Passphrase", "Please enter your private key passphrase.")
+            return
+
+        try:
+            timestamp = decrypt_file(self.receiver_priv, self.sender_pub, self.input_file, self.output_file, pwd)
+            dt = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+            
+            messagebox.showinfo("Success", f"File successfully decrypted AND sender signature verified!\n\nEncrypted on: {dt}\nSaved to: {self.output_file}")
+            self.destroy()
+        except InvalidTag:
+            messagebox.showerror("Integrity Error", "Decryption failed!\nThe file has been tampered with or corrupted.")
+        except InvalidSignature:
+            messagebox.showerror("Signature Error", "Verification failed!\nThe digital signature does not match the sender's public key.")
+        except ValueError as ve:
+            messagebox.showerror("Format Error", str(ve))
+        except (OverflowError):
+            messagebox.showerror("Timestamp Error", "The file's creation timestamp is corrupted or maliciously altered.")
+        except OSError:
+            messagebox.showerror("File Error", "Could not read the encrypted file. Please check permissions.")
+        except Exception as e:
+            messagebox.showerror("Decryption Failed", f"Decryption failed. Did you enter the correct passphrase?\n\nDetails: {str(e)}")
+
+
 class HybridEncryptionApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
         self.title("Hybrid Cryptography System (Secure Edition)")
-        self.geometry("700x550")
+        self.geometry("850x550")
         self.resizable(False, False)
 
         self.grid_columnconfigure(0, weight=1)
@@ -68,33 +310,46 @@ class HybridEncryptionApp(ctk.CTk):
         self._setup_key_section()
         self._setup_encrypt_section()
         self._setup_decrypt_section()
+        
+        self._check_key_status()
 
     def _setup_key_section(self):
-        self.key_frame.grid_columnconfigure(1, weight=1)
+        self.key_frame.grid_columnconfigure(0, weight=1)
         lbl = ctk.CTkLabel(self.key_frame, text="1. Key Management", font=ctk.CTkFont(weight="bold"))
-        lbl.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        lbl.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
         
-        btn_generate = ctk.CTkButton(self.key_frame, text="Generate Secure RSA Keys", command=self.generate_keys)
-        btn_generate.grid(row=0, column=1, padx=10, pady=10, sticky="e")
+        desc = ctk.CTkLabel(self.key_frame, text="First-time users MUST generate their keys here before doing anything else.", text_color="gray", font=ctk.CTkFont(size=12))
+        desc.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="w")
+        
+        self.btn_generate = ctk.CTkButton(self.key_frame, text="Generate Secure RSA Keys", command=self.generate_keys)
+        self.btn_generate.grid(row=0, column=1, rowspan=2, padx=5, pady=10, sticky="e")
+        
+        self.btn_change_pwd = ctk.CTkButton(self.key_frame, text="Change Passphrase", command=self.change_password)
+        self.btn_change_pwd.grid(row=0, column=2, rowspan=2, padx=(5, 10), pady=10, sticky="e")
 
     def _setup_encrypt_section(self):
-        self.encrypt_frame.grid_columnconfigure(1, weight=1)
+        self.encrypt_frame.grid_columnconfigure(0, weight=1)
         lbl = ctk.CTkLabel(self.encrypt_frame, text="2. Encryption & Signing", font=ctk.CTkFont(weight="bold"))
-        lbl.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        lbl.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
         
-        btn_encrypt = ctk.CTkButton(self.encrypt_frame, text="Select File to Encrypt", command=self.encrypt_action)
-        btn_encrypt.grid(row=0, column=1, padx=10, pady=10, sticky="e")
+        desc = ctk.CTkLabel(self.encrypt_frame, text="Secure a file to send to someone else (requires their public key).", text_color="gray", font=ctk.CTkFont(size=12))
+        desc.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="w")
+        
+        self.btn_encrypt = ctk.CTkButton(self.encrypt_frame, text="Open Encryption Wizard", command=self.open_encrypt_wizard)
+        self.btn_encrypt.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="e")
 
     def _setup_decrypt_section(self):
-        self.decrypt_frame.grid_columnconfigure(1, weight=1)
+        self.decrypt_frame.grid_columnconfigure(0, weight=1)
         lbl = ctk.CTkLabel(self.decrypt_frame, text="3. Decryption & Verification", font=ctk.CTkFont(weight="bold"))
-        lbl.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        lbl.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
         
-        btn_decrypt = ctk.CTkButton(self.decrypt_frame, text="Select File to Decrypt", command=self.decrypt_action)
-        btn_decrypt.grid(row=0, column=1, padx=10, pady=10, sticky="e")
+        desc = ctk.CTkLabel(self.decrypt_frame, text="Unlock a file sent to you (requires your private key password).", text_color="gray", font=ctk.CTkFont(size=12))
+        desc.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="w")
+        
+        self.btn_decrypt = ctk.CTkButton(self.decrypt_frame, text="Open Decryption Wizard", command=self.open_decrypt_wizard)
+        self.btn_decrypt.grid(row=0, column=1, rowspan=2, padx=10, pady=10, sticky="e")
 
     def get_password(self, prompt="Enter Passphrase:"):
-        # Round 3 Fix: Using secure custom modal with password masking
         dialog = PasswordDialog("Passphrase Required", prompt, parent=self)
         res = dialog.password
         return res.encode('utf-8') if res else None
@@ -105,8 +360,6 @@ class HybridEncryptionApp(ctk.CTk):
             messagebox.showwarning("Cancelled", "Key generation cancelled.")
             return
             
-        # Round 4 Fix: Enforce strong password policy
-        import re
         pwd_str = password.decode('utf-8')
         if len(pwd_str) < 12 or not re.search(r"[A-Z]", pwd_str) or not re.search(r"[a-z]", pwd_str) or not re.search(r"[0-9]", pwd_str) or not re.search(r"[^A-Za-z0-9]", pwd_str):
             messagebox.showerror("Weak Password", "Passphrase MUST be at least 12 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.")
@@ -115,78 +368,60 @@ class HybridEncryptionApp(ctk.CTk):
         try:
             generate_rsa_keys("private.pem", "public.pem", password)
             messagebox.showinfo("Success", "RSA-3072 key pair generated successfully and secured with passphrase!\n(private.pem, public.pem)")
+            self._check_key_status()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to generate keys: {str(e)}")
 
-    def encrypt_action(self):
-        receiver_pub = filedialog.askopenfilename(title="Select Receiver's Public Key", filetypes=[("PEM Files", "*.pem")])
-        if not receiver_pub: return
-        
-        sender_priv = filedialog.askopenfilename(title="Select YOUR Private Key (for signing)", filetypes=[("PEM Files", "*.pem")])
-        if not sender_priv: return
+    def _check_key_status(self):
+        if not os.path.exists("private.pem") or not os.path.exists("public.pem"):
+            self.btn_encrypt.configure(state="disabled")
+            self.btn_decrypt.configure(state="disabled")
+            self.btn_change_pwd.configure(state="disabled")
+        else:
+            self.btn_encrypt.configure(state="normal")
+            self.btn_decrypt.configure(state="normal")
+            self.btn_change_pwd.configure(state="normal")
 
-        password = self.get_password("Enter YOUR private key passphrase:")
-        if not password: return
-
-        input_file = filedialog.askopenfilename(title="Select File to Encrypt")
-        if not input_file: return
-
-        output_file = filedialog.asksaveasfilename(
-            title="Save Encrypted File As",
-            defaultextension=".enc",
-            initialfile=os.path.basename(input_file) + ".enc"
-        )
-        if not output_file: return
+    def change_password(self):
+        old_pwd = self.get_password("Enter your CURRENT passphrase:")
+        if not old_pwd: return
+            
+        new_pwd = self.get_password("Enter your NEW passphrase (min 12 chars, upper, lower, number, symbol):")
+        if not new_pwd: return
+            
+        pwd_str = new_pwd.decode('utf-8')
+        if len(pwd_str) < 12 or not re.search(r"[A-Z]", pwd_str) or not re.search(r"[a-z]", pwd_str) or not re.search(r"[0-9]", pwd_str) or not re.search(r"[^A-Za-z0-9]", pwd_str):
+            messagebox.showerror("Weak Password", "New passphrase MUST be at least 12 characters long and contain an uppercase letter, a lowercase letter, a number, and a special character.")
+            return
 
         try:
-            encrypt_file(receiver_pub, sender_priv, input_file, output_file, password)
-            messagebox.showinfo("Success", f"File successfully encrypted AND signed!\nSaved to: {output_file}")
-        except OSError:
-            messagebox.showerror("File Error", "Could not access or write the file. Please check permissions.")
-        except Exception as e:
-            messagebox.showerror("Error", f"Encryption failed: {str(e)}")
-
-    def decrypt_action(self):
-        receiver_priv = filedialog.askopenfilename(title="Select YOUR Private Key", filetypes=[("PEM Files", "*.pem")])
-        if not receiver_priv: return
-        
-        password = self.get_password("Enter YOUR private key passphrase:")
-        if not password: return
-        
-        sender_pub = filedialog.askopenfilename(title="Select Sender's Public Key (for verification)", filetypes=[("PEM Files", "*.pem")])
-        if not sender_pub: return
-
-        input_file = filedialog.askopenfilename(title="Select File to Decrypt", filetypes=[("Encrypted Files", "*.enc"), ("All Files", "*.*")])
-        if not input_file: return
-
-        default_out = input_file.replace(".enc", "")
-        if default_out == input_file:
-            default_out += ".decrypted"
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.backends import default_backend
             
-        output_file = filedialog.asksaveasfilename(
-            title="Save Decrypted File As",
-            initialfile=os.path.basename(default_out)
-        )
-        if not output_file: return
-
-        try:
-            # Round 3 Fix: Retrieve timestamp for anti-replay check
-            timestamp = decrypt_file(receiver_priv, sender_pub, input_file, output_file, password)
-            dt = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-            
-            messagebox.showinfo("Success", f"File successfully decrypted AND sender signature verified!\n\nEncrypted on: {dt}\nSaved to: {output_file}")
-        except InvalidTag:
-            messagebox.showerror("Integrity Error", "Decryption failed!\nThe file has been tampered with or corrupted.")
-        except InvalidSignature:
-            messagebox.showerror("Signature Error", "Verification failed!\nThe digital signature does not match the sender's public key.")
-        except ValueError as ve:
-            messagebox.showerror("Format Error", str(ve))
-        except (OverflowError):
-            messagebox.showerror("Timestamp Error", "The file's creation timestamp is corrupted or maliciously altered.")
-        except OSError:
-            messagebox.showerror("File Error", "Could not read the encrypted file. Please check permissions.")
+            with open("private.pem", "rb") as key_file:
+                private_key = serialization.load_pem_private_key(
+                    key_file.read(), password=old_pwd, backend=default_backend()
+                )
+                
+            enc_alg = serialization.BestAvailableEncryption(new_pwd)
+            with open("private.pem", "wb") as f:
+                f.write(private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.PKCS8,
+                    encryption_algorithm=enc_alg
+                ))
+            messagebox.showinfo("Success", "Passphrase changed successfully! Your private key is now protected with the new password.")
+        except ValueError:
+            messagebox.showerror("Error", "Incorrect CURRENT passphrase. Cannot change password.")
         except Exception as e:
-            messagebox.showerror("Error", f"Decryption failed. Did you enter the correct passphrase?\nDetails: {str(e)}")
+            messagebox.showerror("Error", f"Failed to change passphrase: {str(e)}")
+
+    def open_encrypt_wizard(self):
+        EncryptionWizard(self)
+
+    def open_decrypt_wizard(self):
+        DecryptionWizard(self)
+
 
 if __name__ == "__main__":
     try:

@@ -18,7 +18,8 @@ This application has undergone a **9-round rigorous, white-box security audit**,
 
 <img width="1053" height="718" alt="Screenshot 2026-08-26 163339" src="https://github.com/user-attachments/assets/4428c7eb-f246-4f6a-89b1-b7248b2f22fc" />
 
-<img width="852" height="572" alt="Screenshot 2026-08-26 163355" src="https://github.com/user-attachments/assets/f84adf8a-4917-4211-ab8d-2b3857a66d74" />
+<img width="1052" height="715" alt="image" src="https://github.com/user-attachments/assets/dc038c08-5cd5-46b9-abe4-3a17670b9d87" />
+
 
 
 

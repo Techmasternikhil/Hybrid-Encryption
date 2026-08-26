@@ -101,6 +101,10 @@ class PasswordDialog(ctk.CTkToplevel):
         super().__init__(parent)
         self.title(title)
         self.geometry("350x180")
+        try:
+            self.iconbitmap("icon.ico")
+        except Exception:
+            pass
         self.resizable(False, False)
 
         self.transient(parent)
@@ -149,7 +153,11 @@ class EncryptionWizard(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Encryption & Signing Wizard")
-        self.geometry("800x450")
+        self.geometry("850x550")
+        try:
+            self.iconbitmap("icon.ico")
+        except Exception:
+            pass
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -262,7 +270,11 @@ class DecryptionWizard(ctk.CTkToplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("Decryption & Verification Wizard")
-        self.geometry("800x450")
+        self.geometry("850x450")
+        try:
+            self.iconbitmap("icon.ico")
+        except Exception:
+            pass
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -395,6 +407,12 @@ class HybridEncryptionApp(ctk.CTk):
         self.title("Hybrid Cryptography System (Secure Edition)")
         self.geometry("850x550")
         self.resizable(False, False)
+
+        # Set custom window icon
+        try:
+            self.iconbitmap("icon.ico")
+        except Exception:
+            pass # Fails gracefully if icon is missing on some OS
 
         self.grid_columnconfigure(0, weight=1)
 

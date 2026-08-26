@@ -9,6 +9,28 @@ secret.txt
 secret_decrypted.txt
 should_fail.txt
 
+# LOW-01 Fix: Demo-generated files
+demo_secret.txt
+demo_secret_decrypted.txt
+demo_secret_tampered.enc
+
+# LOW-01 Fix: Test-generated files
+empty.txt
+empty_dec.txt
+large.bin
+large_dec.bin
+normal.txt
+normal_dec.txt
+forward_test.txt
+forward_test_dec.txt
+wrong_recv.txt
+wrong_recv_dec.txt
+nopass_test.txt
+nopass_test_dec.txt
+
+# Application error log (may contain sensitive paths)
+hybrid_crypto_errors.log
+
 # Python Specific
 __pycache__/
 *.py[cod]

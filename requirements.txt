@@ -1,7 +1,10 @@
 # Secure Edition Requirements
-# Locked down to exact versions to mitigate Supply Chain / Dependency Confusion attacks.
+# cryptography: minimum version enforced to ensure patched OpenSSL C-libraries.
+#   LOW-02 Fix: Upper bound pinned to prevent auto-installing unvetted future versions.
+#   Update the upper bound manually after reviewing each new release's changelog.
+# customtkinter: pinned to exact version for UI stability.
 # In a production environment, you should enforce strict hashes:
 # pip install --require-hashes -r requirements.txt
 
-cryptography==41.0.3
+cryptography>=42.0.5,<45.0.0
 customtkinter==5.2.0

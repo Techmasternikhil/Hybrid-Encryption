@@ -14,9 +14,12 @@ This application has undergone a **9-round rigorous, white-box security audit**,
 - **OS-Level Sandboxing**: Hardcoded to safely store and load keys exclusively from `~/.hybrid_crypto/`, protecting against Current Working Directory (CWD) hijacking and unauthorized key injection.
 - **Denial of Service (DoS) Protection**: Enforces a strict 64 GiB mathematical upper bound and hashes ciphertexts *before* performing expensive AES-GCM operations to reject tampered files instantly.
 - **Modern Desktop UI**: A sleek, dark-themed graphical interface built with `customtkinter`.
+- 
 
+<img width="1053" height="718" alt="Screenshot 2026-08-26 163339" src="https://github.com/user-attachments/assets/4428c7eb-f246-4f6a-89b1-b7248b2f22fc" />
 
-<img width="740" height="586" alt="image" src="https://github.com/user-attachments/assets/eb01d9a9-0655-44f9-ba33-40f67261d85f" />
+<img width="852" height="572" alt="Screenshot 2026-08-26 163355" src="https://github.com/user-attachments/assets/f84adf8a-4917-4211-ab8d-2b3857a66d74" />
+
 
 
 
